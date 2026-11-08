@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   BarChart3, Award, CheckCircle2, TrendingUp, Download, 
-  Layers, Users, ShieldAlert, ChevronRight, FileSpreadsheet
+  Layers, Users, ShieldAlert, ChevronRight, FileSpreadsheet,
+  Sparkles, Bot, RefreshCw, ChevronDown, ChevronUp
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
@@ -34,6 +35,11 @@ function AnalyticsContent() {
   const [loading, setLoading] = useState(false);
   const [topperTab, setTopperTab] = useState<"top10" | "top20" | "top50">("top10");
 
+  // Gemini AI Executive Dossier State
+  const [aiReport, setAiReport] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiDossier, setShowAiDossier] = useState(false);
+
   useEffect(() => {
     fetch("/api/examinations")
       .then((res) => res.json())
@@ -49,12 +55,29 @@ function AnalyticsContent() {
   useEffect(() => {
     if (!selectedExamId) return;
     setLoading(true);
+    setAiReport(null);
+    setShowAiDossier(false);
     fetch(`/api/examinations/${selectedExamId}/analytics`)
       .then((res) => res.json())
       .then((data) => setAnalytics(data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [selectedExamId]);
+
+  const generateAiDossier = async () => {
+    if (!selectedExamId) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch(`/api/examinations/${selectedExamId}/ai-insights`);
+      const data = await res.json();
+      setAiReport(data.ai_report);
+      setShowAiDossier(true);
+    } catch (err) {
+      console.error("AI Insight Error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // Format grade data for Recharts
   const gradeChartData = analytics?.grade_distribution
@@ -91,13 +114,21 @@ function AnalyticsContent() {
 
         {selectedExamId && (
           <div className="flex items-center space-x-2">
+            <button
+              onClick={generateAiDossier}
+              disabled={aiLoading}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
+              <span>{aiLoading ? "Synthesizing AI Dossier..." : "Generate AI Executive Report"}</span>
+            </button>
             <a
               href={`/api/exports/pdf/analytics/${selectedExamId}`}
               download
               className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-semibold transition-all"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download PDF Dossier</span>
+              <span>Download PDF</span>
             </a>
             <a
               href={`/api/exports/excel/${selectedExamId}`}
@@ -128,6 +159,56 @@ function AnalyticsContent() {
           ))}
         </select>
       </div>
+
+      {/* AI Academic Executive Dossier (Gemini / Heuristic Engine) */}
+      {showAiDossier && aiReport && (
+        <div className="rounded-2xl bg-gradient-to-br from-surface-card via-surface-card to-blue-950/20 border border-blue-500/30 p-6 space-y-4 shadow-xl shadow-blue-950/30 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Executive Academic Intelligence Dossier</span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Autonomous qualitative insights synthesized from live Osmania University examination data.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                aiReport.is_live_gemini 
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                  : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+              }`}>
+                {aiReport.is_live_gemini ? `✨ ${aiReport.model}` : "🤖 Academic Heuristic Engine"}
+              </span>
+              <button
+                onClick={() => setShowAiDossier(false)}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <div className="prose prose-invert max-w-none text-xs text-slate-300 space-y-2 whitespace-pre-line leading-relaxed font-sans">
+            {aiReport.markdown_report}
+          </div>
+
+          {!aiReport.is_live_gemini && (
+            <div className="pt-2 text-[11px] text-slate-500 border-t border-border flex items-center justify-between">
+              <span>Running built-in heuristic AI analyzer (zero setup).</span>
+              <Link href="/settings" className="text-blue-400 hover:underline">
+                Add free Gemini API Key in Settings for live Generative AI &rarr;
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="p-16 text-center text-slate-400 text-sm">
@@ -199,13 +280,15 @@ function AnalyticsContent() {
                     <XAxis 
                       dataKey="branch_name" 
                       stroke="#64748B" 
-                      fontSize={11}
-                      tickFormatter={(val) => val.split(" ")[0]}
+                      fontSize={11} 
+                      angle={-15} 
+                      textAnchor="end"
+                      interval={0}
                     />
                     <YAxis stroke="#64748B" fontSize={11} domain={[0, 100]} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: "#0F172A", borderColor: "#1E293B", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(value: any) => [`${value}%`, "Pass Percentage"]}
+                      formatter={(val: any) => [`${val}% Pass`, "Rate"]}
                     />
                     <Bar dataKey="pass_percentage" fill="#3B82F6" radius={[6, 6, 0, 0]} />
                   </BarChart>
@@ -213,17 +296,15 @@ function AnalyticsContent() {
               </div>
             </div>
 
-            {/* Right 1 Col: Backlog Breakdown Pie Chart */}
+            {/* Right Col: Backlog Breakdown Pie Chart */}
             <div className="rounded-2xl bg-surface-card border border-border p-6 space-y-4">
               <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                 <ShieldAlert className="w-4 h-4 text-amber-400" />
-                <span>Backlog Clearance Breakdown</span>
+                <span>Backlog Status Distribution</span>
               </h3>
 
               <div className="h-72 w-full flex items-center justify-center">
-                {backlogPieData.length === 0 ? (
-                  <p className="text-xs text-slate-500">No backlog data recorded</p>
-                ) : (
+                {backlogPieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -232,30 +313,42 @@ function AnalyticsContent() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
                         outerRadius={80}
+                        innerRadius={45}
                         paddingAngle={4}
                       >
                         {backlogPieData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "#0F172A", borderColor: "#1E293B", borderRadius: "8px", fontSize: "12px" }} />
-                      <Legend wrapperStyle={{ fontSize: "11px", color: "#94A3B8" }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#0F172A", borderColor: "#1E293B", borderRadius: "8px", fontSize: "12px" }}
+                      />
+                      <Legend 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                        wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
+                ) : (
+                  <div className="text-slate-500 text-xs">No backlog data</div>
                 )}
               </div>
             </div>
 
           </div>
 
-          {/* Grade Distribution Bar Chart */}
+          {/* Letter Grade Distribution Bar Chart */}
           <div className="rounded-2xl bg-surface-card border border-border p-6 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-              <Award className="w-4 h-4 text-emerald-400" />
-              <span>Overall Letter Grade Distribution (OU CBCS System)</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span>Subject Letter Grade Distribution (O to F / Ab)</span>
+              </h3>
+              <span className="text-xs text-slate-500">Across all registered course credits</span>
+            </div>
 
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -332,7 +425,9 @@ function AnalyticsContent() {
                     key={tab}
                     onClick={() => setTopperTab(tab)}
                     className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                      topperTab === tab ? "bg-blue-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                      topperTab === tab
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-400 hover:text-white"
                     }`}
                   >
                     {tab.toUpperCase()}
@@ -345,45 +440,50 @@ function AnalyticsContent() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#080D1A] text-slate-400 uppercase text-[11px] font-semibold border-b border-border">
                   <tr>
-                    <th className="py-3 px-4 text-center">Rank</th>
+                    <th className="py-3 px-4 text-center w-12">Rank</th>
                     <th className="py-3 px-4">Hall Ticket</th>
                     <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">College</th>
                     <th className="py-3 px-4">Branch</th>
-                    <th className="py-3 px-4 text-right">SGPA</th>
                     <th className="py-3 px-4 text-center">Backlogs</th>
-                    <th className="py-3 px-4 text-center">Result Status</th>
+                    <th className="py-3 px-4 text-right">SGPA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {analytics.toppers?.[topperTab]?.map((cand: any) => (
-                    <tr key={cand.hall_ticket} className="hover:bg-surface/50">
-                      <td className="py-3 px-4 text-center font-mono font-bold">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
-                          cand.rank === 1 ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
-                          cand.rank === 2 ? "bg-slate-300/20 text-slate-300 border border-slate-300/40" :
-                          cand.rank === 3 ? "bg-amber-700/20 text-amber-600 border border-amber-700/40" :
-                          "text-slate-400"
-                        }`}>
-                          #{cand.rank}
-                        </span>
+                  {analytics[topperTab]?.map((t: any) => (
+                    <tr key={t.hall_ticket} className="hover:bg-surface/50">
+                      <td className="py-3 px-4 text-center font-bold">
+                        {t.rank === 1 ? (
+                          <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 inline-flex items-center justify-center text-xs">
+                            1
+                          </span>
+                        ) : t.rank === 2 ? (
+                          <span className="w-5 h-5 rounded-full bg-slate-300/20 text-slate-300 border border-slate-300/40 inline-flex items-center justify-center text-xs">
+                            2
+                          </span>
+                        ) : t.rank === 3 ? (
+                          <span className="w-5 h-5 rounded-full bg-amber-700/20 text-amber-600 border border-amber-700/40 inline-flex items-center justify-center text-xs">
+                            3
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">#{t.rank}</span>
+                        )}
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-blue-400">
-                        <Link href={`/students/${cand.hall_ticket}`} className="hover:underline">
-                          {cand.hall_ticket}
+                        <Link href={`/students/${t.hall_ticket}`} className="hover:underline">
+                          {t.hall_ticket}
                         </Link>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-white">{cand.student_name}</td>
-                      <td className="py-3 px-4 text-slate-300">{cand.branch_name}</td>
-                      <td className="py-3 px-4 font-mono font-extrabold text-emerald-400 text-right">
-                        {cand.sgpa}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-emerald-400 font-bold">
-                        {cand.backlog_count}
-                      </td>
+                      <td className="py-3 px-4 font-semibold text-white">{t.name || "N/A"}</td>
+                      <td className="py-3 px-4 text-slate-400 truncate max-w-[140px]">{t.college_name || t.college_code}</td>
+                      <td className="py-3 px-4 text-slate-400">{t.branch_name || t.branch_code}</td>
                       <td className="py-3 px-4 text-center">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400">
-                          {cand.result_status}
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                          0 Backlogs
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-extrabold text-white text-sm">
+                        {t.sgpa}
                       </td>
                     </tr>
                   ))}
@@ -400,7 +500,11 @@ function AnalyticsContent() {
 
 export default function AnalyticsPage() {
   return (
-    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-slate-400 text-sm">Loading analytics intelligence...</div>}>
+    <Suspense fallback={
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center text-slate-400 text-sm">
+        Loading analytics engine...
+      </div>
+    }>
       <AnalyticsContent />
     </Suspense>
   );

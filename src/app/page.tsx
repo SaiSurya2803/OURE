@@ -91,7 +91,7 @@ export default function LandingPage() {
         </form>
 
         {/* Feature Highlights Grid */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+        <div className="mt-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
           
           <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-blue-500/40 transition-all group">
             <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5 group-hover:scale-105 transition-transform">
@@ -103,7 +103,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-blue-500/40 transition-all group">
+          <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-cyan-500/40 transition-all group">
             <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-5 group-hover:scale-105 transition-transform">
               <GitCompare className="w-6 h-6" />
             </div>
@@ -113,13 +113,23 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-blue-500/40 transition-all group">
+          <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-indigo-500/40 transition-all group">
             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5 group-hover:scale-105 transition-transform">
               <BarChart3 className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white mb-2">Deep Academic Analytics & Reports</h3>
+            <h3 className="text-lg font-bold text-white mb-2">Deep Academic Analytics</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
               Instant pass percentage, branch comparisons, grade distributions, standard deviations, and downloadable multi-sheet Excel workbooks and ReportLab PDF dossiers.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-surface-card border border-border/80 hover:border-purple-500/40 transition-all group">
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-5 group-hover:scale-105 transition-transform">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Gemini AI Intelligence</h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Synthesize Dean executive briefings, failure bottlenecks, and student counseling roadmaps powered by Gemini 1.5 Flash (with zero-setup built-in AI fallback).
             </p>
           </div>
 

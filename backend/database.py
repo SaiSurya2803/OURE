@@ -205,6 +205,16 @@ class ScanLogModel(Base):
     job = relationship("ScanJobModel", back_populates="logs")
 
 
+class PlatformConfigModel(Base):
+    __tablename__ = "platform_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

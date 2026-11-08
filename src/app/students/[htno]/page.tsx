@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   User, GraduationCap, Download, ArrowLeft, 
   TrendingUp, Award, CheckCircle2, AlertCircle, 
-  GitCompare, Layers, Calendar
+  GitCompare, Layers, Calendar, Sparkles, Bot, RefreshCw
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, Tooltip, 
@@ -20,6 +20,11 @@ export default function StudentProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // AI Academic Advisor State
+  const [aiReport, setAiReport] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAi, setShowAi] = useState(false);
+
   useEffect(() => {
     if (!htno) return;
     setLoading(true);
@@ -29,6 +34,21 @@ export default function StudentProfilePage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [htno]);
+
+  const generateAiAdvisory = async () => {
+    if (!htno) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch(`/api/students/${htno}/ai-advisory`);
+      const data = await res.json();
+      setAiReport(data.advisory);
+      setShowAi(true);
+    } catch (err) {
+      console.error("AI Advisory Error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -74,15 +94,66 @@ export default function StudentProfilePage() {
           <span>Back to Student Database</span>
         </Link>
 
-        <a
-          href={`/api/exports/pdf/student/${student.hall_ticket}`}
-          download
-          className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Download Student Grade Memo PDF</span>
-        </a>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={generateAiAdvisory}
+            disabled={aiLoading}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
+            <span>{aiLoading ? "Synthesizing AI Guidance..." : "Generate AI Academic Guidance"}</span>
+          </button>
+          <a
+            href={`/api/exports/pdf/student/${student.hall_ticket}`}
+            download
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-surface hover:bg-slate-800 border border-border text-slate-300 hover:text-white text-xs font-semibold transition-all"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download Grade Memo PDF</span>
+          </a>
+        </div>
       </div>
+
+      {/* AI Academic Counselor Dossier */}
+      {showAi && aiReport && (
+        <div className="rounded-2xl bg-gradient-to-br from-surface-card via-surface-card to-blue-950/20 border border-blue-500/30 p-6 space-y-4 shadow-xl shadow-blue-950/30 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>AI Academic Counselor & Trajectory Roadmap</span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Customized guidance for {student.hall_ticket} based on cumulative examination history.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                aiReport.is_live_gemini 
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                  : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+              }`}>
+                {aiReport.is_live_gemini ? "✨ Live Gemini 1.5 Flash" : "🤖 Academic Heuristic Engine"}
+              </span>
+              <button
+                onClick={() => setShowAi(false)}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <div className="prose prose-invert max-w-none text-xs text-slate-300 space-y-2 whitespace-pre-line leading-relaxed font-sans">
+            {aiReport.advisory_markdown}
+          </div>
+        </div>
+      )}
 
       {/* Candidate Personal Information Card */}
       <div className="rounded-2xl bg-surface-card border border-border p-6 shadow-xl">
@@ -139,13 +210,15 @@ export default function StudentProfilePage() {
                   <YAxis stroke="#64748B" fontSize={11} domain={[0, 10]} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: "#0F172A", borderColor: "#1E293B", borderRadius: "8px", fontSize: "12px" }}
+                    formatter={(val: any) => [`${val} SGPA`, "Grade Point Average"]}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="sgpa" 
                     stroke="#3B82F6" 
-                    strokeWidth={3} 
-                    dot={{ fill: "#60A5FA", r: 5 }} 
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: "#3B82F6", strokeWidth: 2, stroke: "#1E293B" }}
+                    activeDot={{ r: 7 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -154,48 +227,55 @@ export default function StudentProfilePage() {
         )}
       </div>
 
-      {/* Revaluation History Audit Trail */}
-      {revaluation_history?.length > 0 && (
-        <div className="rounded-2xl bg-surface-card border border-border p-6 space-y-4">
-          <div className="flex items-center space-x-2">
-            <GitCompare className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">Revaluation & Revision Audit Trail</h3>
+      {/* Revaluation History Card if applicable */}
+      {revaluation_history.length > 0 && (
+        <div className="rounded-2xl bg-surface-card border border-border overflow-hidden">
+          <div className="p-5 bg-[#050811] border-b border-border flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <GitCompare className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">Revaluation Scrutiny Trajectory</h3>
+            </div>
+            <span className="text-xs text-cyan-400 font-mono">
+              {revaluation_history.length} Subject(s) Evaluated
+            </span>
           </div>
 
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#050811] text-slate-400 text-[10px] uppercase font-semibold">
+              <thead className="bg-[#080D1A] text-slate-400 text-[10px] uppercase font-semibold border-b border-border">
                 <tr>
-                  <th className="py-2.5 px-3">Subject Code & Title</th>
-                  <th className="py-2.5 px-3 text-center">Original Grade</th>
-                  <th className="py-2.5 px-3 text-center">Revised Grade</th>
-                  <th className="py-2.5 px-3 text-center">Point Diff</th>
-                  <th className="py-2.5 px-3 text-right">Outcome</th>
+                  <th className="py-2.5 px-4">Subject</th>
+                  <th className="py-2.5 px-4 text-center">Original Grade</th>
+                  <th className="py-2.5 px-4 text-center">Revised Grade</th>
+                  <th className="py-2.5 px-4 text-center">Grade Point Delta</th>
+                  <th className="py-2.5 px-4 text-right">Transition Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {revaluation_history.map((rv: any, idx: number) => (
+                {revaluation_history.map((rev: any, idx: number) => (
                   <tr key={idx} className="hover:bg-surface/50">
-                    <td className="py-2.5 px-3 font-medium text-white">
-                      <span className="font-mono text-cyan-400 mr-2">{rv.subject_code}</span>
-                      {rv.subject_name}
+                    <td className="py-2.5 px-4">
+                      <span className="font-mono text-blue-400 mr-2">{rev.subject_code}</span>
+                      <span className="text-white font-medium">{rev.subject_name}</span>
                     </td>
-                    <td className="py-2.5 px-3 text-center font-mono text-slate-400 font-bold">{rv.original_grade}</td>
-                    <td className="py-2.5 px-3 text-center font-mono text-white font-extrabold">{rv.revaluation_grade}</td>
-                    <td className="py-2.5 px-3 text-center font-mono font-bold">
-                      {rv.points_difference > 0 ? (
-                        <span className="text-emerald-400">+{rv.points_difference}</span>
+                    <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400">{rev.original_grade}</td>
+                    <td className="py-2.5 px-4 text-center font-mono font-bold text-emerald-400">{rev.revaluation_grade}</td>
+                    <td className="py-2.5 px-4 text-center font-mono">
+                      {rev.points_difference > 0 ? (
+                        <span className="text-emerald-400 font-bold">+{rev.points_difference}</span>
+                      ) : rev.points_difference < 0 ? (
+                        <span className="text-red-400">{rev.points_difference}</span>
                       ) : (
                         <span className="text-slate-500">0</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right">
+                    <td className="py-2.5 px-4 text-right">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        rv.backlog_cleared ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" :
-                        rv.status_change === "GRADE_IMPROVED" ? "bg-emerald-500/15 text-emerald-400" :
+                        rev.backlog_cleared ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                        rev.status_change === "GRADE_IMPROVED" ? "bg-blue-500/20 text-blue-400" :
                         "bg-slate-800 text-slate-400"
                       }`}>
-                        {rv.backlog_cleared ? "Backlog Cleared (Fail → Pass)" : rv.status_change}
+                        {rev.status_change}
                       </span>
                     </td>
                   </tr>

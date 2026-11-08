@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   GitCompare, ArrowRight, CheckCircle2, TrendingUp, 
-  TrendingDown, Minus, Award, RefreshCw, AlertCircle
+  TrendingDown, Minus, Award, RefreshCw, AlertCircle,
+  Sparkles, Bot
 } from "lucide-react";
 
 export default function RevaluationPage() {
@@ -15,13 +16,17 @@ export default function RevaluationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // AI Scrutiny Audit State
+  const [aiAudit, setAiAudit] = useState<any>(null);
+  const [aiAuditLoading, setAiAuditLoading] = useState(false);
+  const [showAiAudit, setShowAiAudit] = useState(false);
+
   useEffect(() => {
     fetch("/api/examinations")
       .then((res) => res.json())
       .then((data) => {
         setExams(data);
         if (data.length >= 2) {
-          // Find if there is a revaluation exam
           const reval = data.find((e: any) => e.exam_type === "REVALUATION");
           const orig = data.find((e: any) => e.exam_type !== "REVALUATION");
           if (reval && orig) {
@@ -43,6 +48,8 @@ export default function RevaluationPage() {
     if (!originalExamId || !revalExamId) return;
     setError(null);
     setLoading(true);
+    setAiAudit(null);
+    setShowAiAudit(false);
 
     try {
       const res = await fetch("/api/revaluation/compare", {
@@ -65,7 +72,28 @@ export default function RevaluationPage() {
     }
   };
 
-  // Auto trigger if both are set on initial load
+  const handleRunAiAudit = async () => {
+    if (!originalExamId || !revalExamId) return;
+    setAiAuditLoading(true);
+    try {
+      const res = await fetch("/api/revaluation/ai-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          original_exam_id: parseInt(originalExamId),
+          revaluation_exam_id: parseInt(revalExamId)
+        })
+      });
+      const data = await res.json();
+      setAiAudit(data.audit);
+      setShowAiAudit(true);
+    } catch (err) {
+      console.error("AI Audit Error:", err);
+    } finally {
+      setAiAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (originalExamId && revalExamId) {
       handleRunComparison();
@@ -101,7 +129,7 @@ export default function RevaluationPage() {
             >
               {exams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
-                  [{ex.exam_type}] {ex.title} ({ex.total_candidates} candidates)
+                  {ex.title} ({ex.exam_type}) — {ex.total_candidates} students
                 </option>
               ))}
             </select>
@@ -109,16 +137,16 @@ export default function RevaluationPage() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              2. Revaluation / Revised Examination Run
+              2. Revaluation / Revised Examination
             </label>
             <select
               value={revalExamId}
               onChange={(e) => setRevalExamId(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface text-sm text-white border border-border focus:border-cyan-500 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface text-sm text-white border border-border focus:border-blue-500 focus:outline-none"
             >
               {exams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
-                  [{ex.exam_type}] {ex.title} ({ex.total_candidates} candidates)
+                  {ex.title} ({ex.exam_type}) — {ex.total_candidates} students
                 </option>
               ))}
             </select>
@@ -126,30 +154,82 @@ export default function RevaluationPage() {
 
         </div>
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-border">
           <span className="text-xs text-slate-400">
             Historical versions are preserved. Original records are never overwritten.
           </span>
-          <button
-            type="button"
-            onClick={handleRunComparison}
-            disabled={loading || !originalExamId || !revalExamId}
-            className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-lg shadow-cyan-600/30 flex items-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>MATCHING COHORTS...</span>
-              </>
-            ) : (
-              <>
-                <GitCompare className="w-4 h-4" />
-                <span>COMPUTE REVALUATION DIFF</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={handleRunAiAudit}
+              disabled={aiAuditLoading || !originalExamId || !revalExamId}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/30 flex items-center space-x-1.5 disabled:opacity-50"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${aiAuditLoading ? "animate-spin" : ""}`} />
+              <span>{aiAuditLoading ? "Auditing Discrepancies..." : "AI Scrutiny Audit"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRunComparison}
+              disabled={loading || !originalExamId || !revalExamId}
+              className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-lg shadow-cyan-600/30 flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>MATCHING COHORTS...</span>
+                </>
+              ) : (
+                <>
+                  <GitCompare className="w-4 h-4" />
+                  <span>COMPUTE REVALUATION DIFF</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* AI Scrutiny Audit Dossier */}
+      {showAiAudit && aiAudit && (
+        <div className="rounded-2xl bg-gradient-to-br from-surface-card via-surface-card to-blue-950/20 border border-blue-500/30 p-6 space-y-4 shadow-xl shadow-blue-950/30 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>AI Revaluation Scrutiny Audit</span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Autonomous qualitative assessment of evaluation discrepancies and backlog clearance velocities.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                aiAudit.is_live_gemini 
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                  : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+              }`}>
+                {aiAudit.is_live_gemini ? "✨ Live Gemini 1.5 Flash" : "🤖 Academic Heuristic Engine"}
+              </span>
+              <button
+                onClick={() => setShowAiAudit(false)}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <div className="prose prose-invert max-w-none text-xs text-slate-300 space-y-2 whitespace-pre-line leading-relaxed font-sans">
+            {aiAudit.audit_markdown}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center space-x-2">
@@ -178,16 +258,18 @@ export default function RevaluationPage() {
                 {report.summary.improved_students}
               </span>
               <span className="text-[10px] text-emerald-400 font-mono block mt-1">
-                {report.summary.improvement_rate_pct}% of applicants
+                +{report.summary.improvement_percentage}% of cohort
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-surface-card border border-border">
-              <span className="text-[11px] text-slate-400 block mb-1">Backlogs Cleared</span>
+              <span className="text-[11px] text-slate-400 block mb-1">Fail → Pass Cleared</span>
               <span className="text-2xl font-extrabold text-cyan-400">
-                {report.summary.backlogs_cleared}
+                {report.summary.backlogs_cleared_fail_to_pass}
               </span>
-              <span className="text-[10px] text-cyan-400 block mt-1">Fail to Pass</span>
+              <span className="text-[10px] text-cyan-400 font-mono block mt-1">
+                Active backlogs cleared
+              </span>
             </div>
 
             <div className="p-4 rounded-xl bg-surface-card border border-border">
@@ -198,28 +280,28 @@ export default function RevaluationPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-surface-card border border-border">
-              <span className="text-[11px] text-slate-400 block mb-1">Decreased</span>
-              <span className="text-2xl font-extrabold text-red-400">
-                {report.summary.decreased_students}
+              <span className="text-[11px] text-slate-400 block mb-1">Pass % Shift</span>
+              <span className="text-2xl font-extrabold text-emerald-400">
+                +{report.summary.overall_pass_difference}%
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-surface-card border border-border">
-              <span className="text-[11px] text-slate-400 block mb-1">Pass % Shift</span>
-              <span className={`text-2xl font-extrabold ${report.summary.pass_percentage_shift >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {report.summary.pass_percentage_shift > 0 ? `+${report.summary.pass_percentage_shift}` : report.summary.pass_percentage_shift}%
+              <span className="text-[11px] text-slate-400 block mb-1">Avg Marks Delta</span>
+              <span className="text-2xl font-extrabold text-blue-400 font-mono">
+                +{report.summary.average_marks_improvement}
               </span>
             </div>
 
           </div>
 
-          {/* Subject-Wise Improvement Table */}
+          {/* Subject-Wise Improvement Breakdown */}
           {report.subject_breakdown?.length > 0 && (
             <div className="rounded-2xl bg-surface-card border border-border overflow-hidden">
               <div className="p-5 border-b border-border bg-[#050811] flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white">Subject-wise Revaluation Impact Breakdown</h3>
+                <h3 className="text-sm font-bold text-white">Subject-wise Revaluation Variations</h3>
                 <span className="text-xs text-slate-500 font-mono">
-                  {report.subject_breakdown.length} Subjects Affected
+                  {report.subject_breakdown.length} Subjects Evaluated
                 </span>
               </div>
 
@@ -299,45 +381,48 @@ export default function RevaluationPage() {
                     </div>
                   </div>
 
-                  {/* Subject Comparison Sub-Table */}
-                  <div className="rounded-xl border border-border/70 overflow-hidden bg-surface/30">
+                  {/* Subject Diff Table */}
+                  <div className="overflow-x-auto bg-[#080D1A] rounded-xl border border-border/60">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-[#050811] text-slate-400 text-[10px] uppercase font-semibold">
+                      <thead className="text-[10px] text-slate-400 uppercase font-mono border-b border-border/60">
                         <tr>
                           <th className="py-2 px-3">Subject</th>
-                          <th className="py-2 px-3 text-center">Original</th>
-                          <th className="py-2 px-3 text-center">Revised</th>
-                          <th className="py-2 px-3 text-center">Point Diff</th>
-                          <th className="py-2 px-3 text-right">Transition Status</th>
+                          <th className="py-2 px-3 text-center">Original Grade</th>
+                          <th className="py-2 px-3 text-center">Revaluation Grade</th>
+                          <th className="py-2 px-3 text-center">Grade Point Delta</th>
+                          <th className="py-2 px-3 text-right">Status Transition</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/60">
+                      <tbody className="divide-y divide-border/40 font-mono text-[11px]">
                         {stud.subjects?.map((sub: any, sIdx: number) => (
-                          <tr key={sIdx} className="hover:bg-surface/50">
-                            <td className="py-2 px-3 font-medium text-slate-200">
-                              <span className="font-mono text-slate-400 mr-2">{sub.subject_code}</span>
+                          <tr key={sIdx} className="hover:bg-surface/30">
+                            <td className="py-2 px-3 font-sans text-white">
+                              <span className="font-mono text-blue-400 mr-2 font-bold">{sub.subject_code}</span>
                               {sub.subject_name}
                             </td>
-                            <td className="py-2 px-3 text-center font-mono text-slate-400 font-bold">{sub.original_grade}</td>
-                            <td className="py-2 px-3 text-center font-mono text-white font-extrabold">{sub.revaluation_grade}</td>
-                            <td className="py-2 px-3 text-center font-mono font-bold">
+                            <td className="py-2 px-3 text-center text-slate-400 font-bold">{sub.original_grade}</td>
+                            <td className="py-2 px-3 text-center text-emerald-400 font-bold">{sub.revaluation_grade}</td>
+                            <td className="py-2 px-3 text-center">
                               {sub.points_difference > 0 ? (
-                                <span className="text-emerald-400">+{sub.points_difference}</span>
+                                <span className="text-emerald-400 font-bold">+{sub.points_difference}</span>
                               ) : sub.points_difference < 0 ? (
-                                <span className="text-red-400">{sub.points_difference}</span>
+                                <span className="text-red-400 font-bold">{sub.points_difference}</span>
                               ) : (
                                 <span className="text-slate-500">0</span>
                               )}
                             </td>
-                            <td className="py-2 px-3 text-right">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                sub.status_change === "FAILED_TO_PASSED" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" :
-                                sub.status_change === "GRADE_IMPROVED" ? "bg-emerald-500/15 text-emerald-400" :
-                                sub.status_change === "GRADE_DECREASED" ? "bg-red-500/15 text-red-400" :
-                                "bg-slate-800 text-slate-400"
-                              }`}>
-                                {sub.status_change === "FAILED_TO_PASSED" ? "Backlog Cleared (Fail → Pass)" : sub.status_change}
-                              </span>
+                            <td className="py-2 px-3 text-right font-sans">
+                              {sub.backlog_cleared ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                  ✓ FAIL TO PASS (CLEARED)
+                                </span>
+                              ) : sub.status_change === "GRADE_IMPROVED" ? (
+                                <span className="text-emerald-400 text-[10px] font-bold">Grade Improved</span>
+                              ) : sub.status_change === "GRADE_DECREASED" ? (
+                                <span className="text-red-400 text-[10px] font-bold">Grade Decreased</span>
+                              ) : (
+                                <span className="text-slate-500 text-[10px]">Unchanged</span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -348,6 +433,7 @@ export default function RevaluationPage() {
                 </div>
               ))}
             </div>
+
           </div>
 
         </div>

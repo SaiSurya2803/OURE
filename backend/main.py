@@ -27,6 +27,7 @@ from backend.revaluation import run_revaluation_comparison
 from backend.exports import (
     generate_excel_report, generate_analytics_pdf, generate_student_card_pdf
 )
+from backend.gemini_service import gemini_service
 
 app = FastAPI(
     title="OU Results Intelligence API",
@@ -75,15 +76,38 @@ class RevaluationRequest(BaseModel):
     revaluation_exam_id: int
 
 
+class GeminiConfigRequest(BaseModel):
+    api_key: Optional[str] = None
+    model: Optional[str] = "gemini-1.5-flash"
+
+
 # --- API Endpoints ---
 
 @app.get("/api/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    ai_status = gemini_service.get_status(db)
     return {
         "status": "healthy",
         "service": "OU Results Intelligence",
         "timestamp": datetime.utcnow().isoformat(),
-        "adapters_available": ["OUCBCSStandardAdapter", "OUNonCBCSAdapter"]
+        "adapters_available": ["OUCBCSStandardAdapter", "OUNonCBCSAdapter"],
+        "ai_status": ai_status
+    }
+
+
+@app.get("/api/ai/status")
+def get_ai_status(db: Session = Depends(get_db)):
+    """Returns the operational status of the Gemini AI engine."""
+    return gemini_service.get_status(db)
+
+
+@app.post("/api/ai/config")
+def update_ai_config(req: GeminiConfigRequest, db: Session = Depends(get_db)):
+    """Updates the Gemini API key or model configuration."""
+    success = gemini_service.set_api_key(req.api_key or "", db)
+    return {
+        "success": success,
+        "status": gemini_service.get_status(db)
     }
 
 
@@ -499,6 +523,67 @@ def get_student_profile(hall_ticket: str, db: Session = Depends(get_db)):
         "academic_history": history,
         "revaluation_history": reval_history
     }
+
+
+# --- AI Intelligence Endpoints (Gemini + Built-in Heuristic) ---
+
+@app.get("/api/examinations/{exam_id}/ai-insights")
+async def get_exam_ai_insights(exam_id: int, db: Session = Depends(get_db)):
+    """
+    Generates an AI Executive Intelligence Dossier for the examination.
+    Uses live Gemini 1.5 Flash if API key is configured; otherwise automatically
+    uses the built-in deterministic Academic Intelligence Heuristic Engine.
+    """
+    exam = db.query(ExamModel).filter(ExamModel.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Examination not found")
+
+    analytics = calculate_exam_analytics(db, exam_id)
+    report = await gemini_service.generate_executive_insights(exam.title, analytics, db=db)
+    return {
+        "exam_id": exam.id,
+        "exam_title": exam.title,
+        "ai_report": report
+    }
+
+
+@app.get("/api/students/{hall_ticket}/ai-advisory")
+async def get_student_ai_advisory(hall_ticket: str, db: Session = Depends(get_db)):
+    """
+    Generates a personalized AI academic counseling and backlog roadmap for a student.
+    """
+    profile_data = get_student_profile(hall_ticket, db)
+    report = await gemini_service.generate_student_advisory(
+        student_dict=profile_data["student"],
+        academic_history=profile_data["academic_history"],
+        revaluation_history=profile_data["revaluation_history"],
+        db=db
+    )
+    return {
+        "hall_ticket": hall_ticket,
+        "advisory": report
+    }
+
+
+@app.post("/api/revaluation/ai-audit")
+async def get_revaluation_ai_audit(req: RevaluationRequest, db: Session = Depends(get_db)):
+    """
+    Generates an AI Scrutiny Audit analyzing marking discrepancies between original and revaluation exams.
+    """
+    diff_report = run_revaluation_comparison(
+        db=db,
+        original_exam_id=req.original_exam_id,
+        revaluation_exam_id=req.revaluation_exam_id
+    )
+    report = await gemini_service.generate_revaluation_audit(
+        stats=diff_report.get("stats", {}),
+        comparisons=diff_report.get("comparisons", []),
+        db=db
+    )
+    return {
+        "audit": report
+    }
+
 
 
 # --- Report & Download Routes ---
