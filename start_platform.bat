@@ -9,7 +9,7 @@ start "OU Results Intelligence - Backend" cmd /k "python -m uvicorn backend.main
 timeout /t 2 >nul
 
 echo Starting Next.js Frontend on port 3000...
-start "OU Results Intelligence - Frontend" cmd /k "cd frontend && npm run start"
+start "OU Results Intelligence - Frontend" cmd /k "npm run start"
 
 echo ===================================================
 echo Platform launched!
